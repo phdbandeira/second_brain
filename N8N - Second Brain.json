@@ -1,0 +1,1157 @@
+{
+  "name": "Second Brain",
+  "nodes": [
+    {
+      "parameters": {
+        "updates": [
+          "message"
+        ],
+        "additionalFields": {
+          "download": false
+        }
+      },
+      "id": "96bf3504-6c62-4cc0-9346-47311f577327",
+      "name": "Telegram Trigger",
+      "type": "n8n-nodes-base.telegramTrigger",
+      "typeVersion": 1.5,
+      "position": [
+        -256,
+        1936
+      ],
+      "webhookId": "f0f94440-8049-4ac3-9a55-bf28bbcdf601",
+      "credentials": {
+        "telegramApi": {
+          "id": "IXyUPIhHGsKX0hbI",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "cfg-user",
+              "name": "allowed_user_id",
+              "value": "6983756016",
+              "type": "string"
+            },
+            {
+              "id": "cfg-sheet",
+              "name": "spreadsheet_id",
+              "value": "16X05g76e05sKjM0-nokPsFWCLp-YAmrT62gvoPGFAVs",
+              "type": "string"
+            },
+            {
+              "id": "cfg-tab",
+              "name": "sheet_name",
+              "value": "Ideias",
+              "type": "string"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "id": "b4aafa9b-c2fd-4b09-a83a-096be9ef21c0",
+      "name": "CONFIGURE AQUI",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        -16,
+        1936
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const message = $json.message || {};\n  const configuredUserId = String($json.allowed_user_id || \"\").trim();\n  const spreadsheetId = String($json.spreadsheet_id || \"\").trim();\n\n  if (!configuredUserId || configuredUserId === \"COLE_SEU_TELEGRAM_USER_ID\") {\n    throw new Error(\"Configuração pendente: informe seu Telegram User ID no nó CONFIGURE AQUI.\");\n  }\n  if (!spreadsheetId || spreadsheetId === \"COLE_O_ID_DA_PLANILHA\") {\n    throw new Error(\"Configuração pendente: informe o ID da planilha no nó CONFIGURE AQUI.\");\n  }\n\n  const senderId = String(message.from?.id || \"\");\n  if (senderId !== configuredUserId) return [];\n\n  let mediaType = \"unsupported\";\n  let fileId = \"\";\n  let mimeType = \"\";\n  let durationSeconds = \"\";\n  let fileSize = 0;\n  let unsupportedReason = \"\";\n  const caption = String(message.caption || \"\").trim();\n  let text = String(message.text || \"\").trim();\n\n  if (message.voice) {\n    mediaType = \"audio\";\n    fileId = String(message.voice.file_id || \"\");\n    mimeType = String(message.voice.mime_type || \"audio/ogg\");\n    durationSeconds = String(message.voice.duration || \"\");\n    fileSize = Number(message.voice.file_size || 0);\n  } else if (message.audio) {\n    mediaType = \"audio\";\n    fileId = String(message.audio.file_id || \"\");\n    mimeType = String(message.audio.mime_type || \"audio/mpeg\");\n    durationSeconds = String(message.audio.duration || \"\");\n    fileSize = Number(message.audio.file_size || 0);\n  } else if (Array.isArray(message.photo) && message.photo.length) {\n    const image = message.photo[message.photo.length - 1];\n    mediaType = \"image\";\n    fileId = String(image.file_id || \"\");\n    mimeType = \"image/jpeg\";\n    fileSize = Number(image.file_size || 0);\n  } else if (message.document && String(message.document.mime_type || \"\").startsWith(\"image/\")) {\n    mediaType = \"image\";\n    fileId = String(message.document.file_id || \"\");\n    mimeType = String(message.document.mime_type || \"image/jpeg\");\n    fileSize = Number(message.document.file_size || 0);\n  } else if (text || caption) {\n    mediaType = \"text\";\n    text = text || caption;\n  } else {\n    unsupportedReason = \"Envie uma mensagem de texto, um áudio/voz ou uma imagem.\";\n  }\n\n  if (mediaType === \"audio\" && fileSize > 25 * 1024 * 1024) {\n    mediaType = \"unsupported\";\n    unsupportedReason = \"O áudio ultrapassa o limite de 25 MB para transcrição. Envie uma versão menor.\";\n  }\n\n  return [{\n    json: {\n      chat_id: String(message.chat?.id || \"\"),\n      user_id: senderId,\n      first_name: message.from?.first_name || \"Gabriel\",\n      username: message.from?.username || \"\",\n      message_id: String(message.message_id || \"\"),\n      created_at: new Date((message.date || Math.floor(Date.now() / 1000)) * 1000).toISOString(),\n      texto: text,\n      media_type: mediaType,\n      media_file_id: fileId,\n      media_mime_type: mimeType,\n      media_duration_seconds: durationSeconds,\n      media_file_size: fileSize,\n      media_caption: caption,\n      transcricao_midia: \"\",\n      unsupported_reason: unsupportedReason\n    }\n  }];"
+      },
+      "id": "195c7a96-77cc-4a06-a14e-4da4e347d01c",
+      "name": "Normalizar e proteger",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        224,
+        1936
+      ]
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ `Nome: ${$json.first_name}\\nTipo de entrada: ${$json.media_type}\\nLegenda original: ${$json.media_caption || ''}\\nConteúdo processado: ${$json.texto}` }}",
+        "hasOutputParser": true,
+        "options": {
+          "systemMessage": "Você é o agente de triagem de um Second Brain pessoal. Responda em português do Brasil e classifique cada entrada em UMA intenção. A entrada pode ter sido digitada, transcrita de um áudio ou extraída e descrita a partir de uma imagem.\n\nINTENÇÕES:\n- capturar: pensamento, observação, hipótese, insight, tarefa conceitual ou ideia que deva ser registrada.\n- consultar: pergunta que pede busca, comparação, síntese ou lembrança das ideias já armazenadas.\n- relatorio: pedido explícito para gerar, baixar, criar ou atualizar o relatório/HTML das ideias.\n- saudacao: cumprimento curto, como \"oi\", \"olá\", \"bom dia\", sem ideia substantiva.\n- ajuda: pedido de instruções, /start, /ajuda ou conteúdo que não possa ser tratado como ideia.\n\nREGRAS:\n1. Uma entrada substantiva é capturar mesmo que seja informal, incompleta, falada ou extraída de uma imagem.\n2. Se o usuário perguntar \"quais ideias...\" ou mencionar o histórico, use consultar.\n3. Nunca afirme que consultou ou salvou dados; você apenas interpreta a mensagem.\n4. Para capturar, crie título claro com até 70 caracteres, resumo fiel de 1–2 frases, categoria, subcategoria, 3–6 tags e potencial.\n5. Não acrescente fatos não presentes na entrada processada. Preserve a intenção original.\n6. Para saudacao, resposta deve convidar: \"Olá, [nome]! Qual ideia ou pensamento você gostaria de registrar agora?\"\n7. Para ajuda, explique de forma breve: envie texto, áudio/voz ou imagem; faça uma pergunta sobre ideias anteriores; ou escreva \"gerar relatório\".\n8. Para consultar ou relatorio, deixe título, resumo e subcategoria vazios, tags vazias, categoria \"Outro\" e potencial \"Médio\".\n9. A saída deve respeitar exatamente o formato estruturado solicitado."
+        }
+      },
+      "id": "0e043cef-41c1-49e2-a1cb-ab74a913eb06",
+      "name": "Agente - Interpretar mensagem",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        1712,
+        1936
+      ]
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "mode": "list",
+          "value": "gpt-5-mini"
+        },
+        "builtInTools": {},
+        "options": {}
+      },
+      "id": "614cd7b9-0e30-43b3-a8fe-9183564cbadf",
+      "name": "OpenAI - Classificação",
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.3,
+      "position": [
+        1648,
+        2160
+      ],
+      "credentials": {
+        "openAiApi": {
+          "id": "Wn7C2HsrhqF6szmR",
+          "name": "OpenAI account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "schemaType": "manual",
+        "inputSchema": "{\n  \"type\": \"object\",\n  \"properties\": {\n    \"intent\": {\n      \"type\": \"string\",\n      \"enum\": [\n        \"capturar\",\n        \"consultar\",\n        \"relatorio\",\n        \"saudacao\",\n        \"ajuda\"\n      ]\n    },\n    \"titulo\": {\n      \"type\": \"string\"\n    },\n    \"resumo\": {\n      \"type\": \"string\"\n    },\n    \"categoria\": {\n      \"type\": \"string\",\n      \"enum\": [\n        \"Trabalho\",\n        \"Ensino\",\n        \"Pesquisa\",\n        \"Negócio\",\n        \"Produto\",\n        \"Conteúdo\",\n        \"Automação\",\n        \"Pessoal\",\n        \"Aprendizado\",\n        \"Outro\"\n      ]\n    },\n    \"subcategoria\": {\n      \"type\": \"string\"\n    },\n    \"tags\": {\n      \"type\": \"array\",\n      \"items\": {\n        \"type\": \"string\"\n      }\n    },\n    \"potencial\": {\n      \"type\": \"string\",\n      \"enum\": [\n        \"Baixo\",\n        \"Médio\",\n        \"Alto\"\n      ]\n    },\n    \"resposta\": {\n      \"type\": \"string\"\n    }\n  },\n  \"required\": [\n    \"intent\",\n    \"titulo\",\n    \"resumo\",\n    \"categoria\",\n    \"subcategoria\",\n    \"tags\",\n    \"potencial\",\n    \"resposta\"\n  ],\n  \"additionalProperties\": false\n}"
+      },
+      "id": "4ba3ea02-1560-43c0-9c3b-ea9fcd1004c3",
+      "name": "Formato estruturado",
+      "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+      "typeVersion": 1.3,
+      "position": [
+        1872,
+        2160
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "expression",
+        "output": "={{ ({ capturar: 0, consultar: 1, relatorio: 2, saudacao: 3, ajuda: 3 })[$json.output.intent] ?? 3 }}"
+      },
+      "id": "3a85940e-fc2f-416b-bb85-db9b8cf02e32",
+      "name": "Roteador de intenção",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [
+        1968,
+        1936
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const parsed = $json.output || {};\n  const source = $(\"Entrada pronta para IA\").first().json;\n  const tags = Array.isArray(parsed.tags) ? parsed.tags.join(\", \") : String(parsed.tags || \"\");\n  const clean = (value) => String(value ?? \"\").trim();\n  const inputType = source.media_type === \"audio\"\n    ? \"Áudio\"\n    : source.media_type === \"image\"\n      ? \"Imagem\"\n      : \"Texto\";\n\n  return [{\n    json: {\n      id: \"SB-\" + source.user_id + \"-\" + source.message_id,\n      criado_em: source.created_at,\n      usuario_id: source.user_id,\n      chat_id: source.chat_id,\n      nome_usuario: source.first_name,\n      ideia_original: source.texto,\n      titulo: clean(parsed.titulo),\n      resumo: clean(parsed.resumo),\n      categoria: clean(parsed.categoria) || \"Outro\",\n      subcategoria: clean(parsed.subcategoria),\n      tags,\n      potencial: clean(parsed.potencial) || \"Médio\",\n      status: \"Capturada\",\n      origem: \"Telegram\",\n      mensagem_id: source.message_id,\n      tipo_entrada: inputType,\n      transcricao_midia: clean(source.transcricao_midia),\n      legenda_midia: clean(source.media_caption),\n      arquivo_telegram_id: clean(source.media_file_id),\n      mime_type: clean(source.media_mime_type),\n      duracao_segundos: clean(source.media_duration_seconds)\n    }\n  }];"
+      },
+      "id": "ecdc53a9-cbc9-4560-a3ad-ad358955e140",
+      "name": "Preparar linha da ideia",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2224,
+        1536
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "={{ $('CONFIGURE AQUI').first().json.spreadsheet_id }}"
+        },
+        "sheetName": {
+          "__rl": true,
+          "mode": "name",
+          "value": "={{ $('CONFIGURE AQUI').first().json.sheet_name }}"
+        },
+        "columns": {
+          "mappingMode": "autoMapInputData",
+          "value": {},
+          "schema": [
+            {
+              "id": "id",
+              "displayName": "id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "criado_em",
+              "displayName": "criado_em",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false
+            },
+            {
+              "id": "usuario_id",
+              "displayName": "usuario_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false
+            },
+            {
+              "id": "chat_id",
+              "displayName": "chat_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false
+            },
+            {
+              "id": "nome_usuario",
+              "displayName": "nome_usuario",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false
+            },
+            {
+              "id": "ideia_original",
+              "displayName": "ideia_original",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false
+            },
+            {
+              "id": "titulo",
+              "displayName": "titulo",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false
+            },
+            {
+              "id": "resumo",
+              "displayName": "resumo",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false
+            },
+            {
+              "id": "categoria",
+              "displayName": "categoria",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false
+            },
+            {
+              "id": "subcategoria",
+              "displayName": "subcategoria",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false
+            },
+            {
+              "id": "tags",
+              "displayName": "tags",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false
+            },
+            {
+              "id": "potencial",
+              "displayName": "potencial",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false
+            },
+            {
+              "id": "status",
+              "displayName": "status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false
+            },
+            {
+              "id": "origem",
+              "displayName": "origem",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false
+            },
+            {
+              "id": "mensagem_id",
+              "displayName": "mensagem_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false
+            },
+            {
+              "id": "tipo_entrada",
+              "displayName": "tipo_entrada",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false
+            },
+            {
+              "id": "transcricao_midia",
+              "displayName": "transcricao_midia",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false
+            },
+            {
+              "id": "legenda_midia",
+              "displayName": "legenda_midia",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false
+            },
+            {
+              "id": "arquivo_telegram_id",
+              "displayName": "arquivo_telegram_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false
+            },
+            {
+              "id": "mime_type",
+              "displayName": "mime_type",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false
+            },
+            {
+              "id": "duracao_segundos",
+              "displayName": "duracao_segundos",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false
+            }
+          ]
+        },
+        "options": {
+          "cellFormat": "USER_ENTERED",
+          "handlingExtraData": "ignoreIt",
+          "useAppend": true
+        }
+      },
+      "id": "0dfe3506-4443-401d-9ba0-2451fca8154a",
+      "name": "Google Sheets - Salvar ideia",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        2480,
+        1536
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "wfvg0JXZozW9gYOt",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const idea = $(\"Preparar linha da ideia\").first().json;\n  const source = $(\"Entrada pronta para IA\").first().json;\n  const esc = (value) => String(value ?? \"\")\n    .replace(/&/g, \"&amp;\").replace(/</g, \"&lt;\").replace(/>/g, \"&gt;\")\n    .replace(/\"/g, \"&quot;\").replace(/'/g, \"&#039;\");\n  const text =\n    \"<b>Ideia registrada no seu Second Brain.</b>\\n\\n\" +\n    \"<b>\" + esc(idea.titulo) + \"</b>\\n\" +\n    esc(idea.resumo) + \"\\n\\n\" +\n    \"<b>Entrada:</b> \" + esc(idea.tipo_entrada) + \"\\n\" +\n    \"<b>Categoria:</b> \" + esc(idea.categoria) +\n    (idea.subcategoria ? \" · \" + esc(idea.subcategoria) : \"\") + \"\\n\" +\n    \"<b>Tags:</b> \" + esc(idea.tags || \"Sem tags\") + \"\\n\" +\n    \"<b>Potencial:</b> \" + esc(idea.potencial) + \"\\n\\n\" +\n    (source.media_type === \"audio\"\n      ? \"A transcrição completa do áudio foi armazenada na planilha.\\n\\n\"\n      : source.media_type === \"image\"\n        ? \"A transcrição visual e a descrição da imagem foram armazenadas na planilha.\\n\\n\"\n        : \"\") +\n    \"Você pode enviar outra ideia, fazer uma pergunta sobre o histórico ou pedir “gerar relatório”.\";\n\n  return [{ json: { chat_id: source.chat_id, telegram_text: text } }];"
+      },
+      "id": "a7ce23f4-9650-47d4-a320-dd687b9c3db6",
+      "name": "Preparar confirmação",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2736,
+        1536
+      ]
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $json.chat_id }}",
+        "text": "={{ $json.telegram_text }}",
+        "additionalFields": {
+          "appendAttribution": false,
+          "disable_web_page_preview": true,
+          "parse_mode": "HTML"
+        }
+      },
+      "id": "202334cc-bf90-42a8-88f4-9a73022c3a82",
+      "name": "Telegram - Confirmar registro",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        2976,
+        1536
+      ],
+      "webhookId": "7ecd6132-d3fd-45c2-a252-7e4ff0cb5d85",
+      "credentials": {
+        "telegramApi": {
+          "id": "IXyUPIhHGsKX0hbI",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "={{ $('CONFIGURE AQUI').first().json.spreadsheet_id }}"
+        },
+        "sheetName": {
+          "__rl": true,
+          "mode": "name",
+          "value": "={{ $('CONFIGURE AQUI').first().json.sheet_name }}"
+        },
+        "filtersUI": {
+          "values": [
+            {
+              "lookupColumn": "usuario_id",
+              "lookupValue": "={{ $('Normalizar e proteger').first().json.user_id }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "c60b17ee-9e2b-438a-b049-64d54e2a8597",
+      "name": "Google Sheets - Ler para consulta",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        2224,
+        1840
+      ],
+      "alwaysOutputData": true,
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "wfvg0JXZozW9gYOt",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const source = $(\"Entrada pronta para IA\").first().json;\n  const rows = $input.all().map((item) => item.json).filter((row) => row && Object.keys(row).length);\n  const ordered = rows.sort((a, b) => String(b.criado_em || \"\").localeCompare(String(a.criado_em || \"\")));\n  const selected = ordered.slice(0, 300);\n  let database = JSON.stringify(selected);\n  if (database.length > 90000) database = database.slice(0, 90000);\n\n  return [{\n    json: {\n      chat_id: source.chat_id,\n      pergunta: source.texto,\n      total_ideias: rows.length,\n      contexto_ideias: database,\n      contexto_limitado: rows.length > selected.length || database.length >= 90000\n    }\n  }];"
+      },
+      "id": "206dffcc-7561-4046-94a3-e7457c2150cd",
+      "name": "Preparar contexto da memória",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2480,
+        1840
+      ]
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ `PERGUNTA DO USUÁRIO:\\n${$json.pergunta}\\n\\nTOTAL DE IDEIAS NA PLANILHA: ${$json.total_ideias}\\nCONTEXTO FOI LIMITADO: ${$json.contexto_limitado}\\n\\nIDEIAS DISPONÍVEIS (JSON):\\n${$json.contexto_ideias}` }}",
+        "options": {
+          "systemMessage": "Você é o agente de consulta do Second Brain de Gabriel. Responda em português do Brasil usando SOMENTE os registros fornecidos no contexto.\n\nRegras:\n- Não invente ideias, datas, categorias ou conclusões sem apoio nos registros.\n- Comece com a resposta direta e depois organize os achados de forma concisa.\n- Quando útil, mencione títulos e datas das ideias que sustentam a resposta.\n- Diferencie claramente conteúdo registrado de sua síntese ou inferência.\n- Se não houver registro suficiente, diga isso e sugira quais termos ou categorias poderiam ser pesquisados.\n- Se o total for zero, explique que ainda não há ideias salvas.\n- Não use tabelas. Use texto simples com bullets apenas quando ajudarem.\n- Não use Markdown complexo nem HTML, pois a resposta será enviada como texto no Telegram.\n- Limite a resposta a 3.000 caracteres."
+        }
+      },
+      "id": "e5e3680b-96f9-4eb2-8e50-2c67033e3624",
+      "name": "Agente - Responder com a memória",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        2736,
+        1840
+      ]
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "mode": "list",
+          "value": "gpt-5-mini"
+        },
+        "builtInTools": {},
+        "options": {}
+      },
+      "id": "c6908f3e-7e72-4143-a641-01411392b5a9",
+      "name": "OpenAI - Resposta",
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.3,
+      "position": [
+        2736,
+        2048
+      ],
+      "credentials": {
+        "openAiApi": {
+          "id": "Wn7C2HsrhqF6szmR",
+          "name": "OpenAI account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $('Entrada pronta para IA').first().json.chat_id }}",
+        "text": "={{ String($json.output || '')\n  .slice(0, 3800)\n  .replace(/&/g, '&amp;')\n  .replace(/</g, '&lt;')\n  .replace(/>/g, '&gt;') }}",
+        "additionalFields": {
+          "appendAttribution": false,
+          "disable_web_page_preview": true,
+          "parse_mode": "HTML"
+        }
+      },
+      "id": "d337747c-d710-47c8-8246-dfcb819b6c24",
+      "name": "Telegram - Responder consulta",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        3040,
+        1840
+      ],
+      "webhookId": "28a374ef-1598-4af1-86b4-ac1e15734a7f",
+      "credentials": {
+        "telegramApi": {
+          "id": "IXyUPIhHGsKX0hbI",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "={{ $('CONFIGURE AQUI').first().json.spreadsheet_id }}"
+        },
+        "sheetName": {
+          "__rl": true,
+          "mode": "name",
+          "value": "={{ $('CONFIGURE AQUI').first().json.sheet_name }}"
+        },
+        "filtersUI": {
+          "values": [
+            {
+              "lookupColumn": "usuario_id",
+              "lookupValue": "={{ $('Normalizar e proteger').first().json.user_id }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "f86277ab-9a93-4e26-a848-91a629687ad8",
+      "name": "Google Sheets - Ler para relatório",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        2224,
+        2176
+      ],
+      "alwaysOutputData": true,
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "wfvg0JXZozW9gYOt",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const source = $(\"Normalizar e proteger\").first().json;\n  const esc = (value) => String(value ?? \"\")\n    .replace(/&/g, \"&amp;\").replace(/</g, \"&lt;\").replace(/>/g, \"&gt;\")\n    .replace(/\"/g, \"&quot;\").replace(/'/g, \"&#039;\");\n  const titleCase = (value) => {\n    const text = String(value || \"\");\n    return text ? text.charAt(0).toUpperCase() + text.slice(1) : \"\";\n  };\n  const formatDate = (value) => {\n    const date = new Date(value);\n    return Number.isNaN(date.getTime())\n      ? esc(value || \"Data não informada\")\n      : new Intl.DateTimeFormat(\"pt-BR\", {\n          dateStyle: \"medium\",\n          timeStyle: \"short\",\n          timeZone: \"America/Sao_Paulo\"\n        }).format(date);\n  };\n\n  const rows = $input.all()\n    .map((item) => item.json)\n    .filter((row) => row && Object.keys(row).length)\n    .sort((a, b) => String(b.criado_em || \"\").localeCompare(String(a.criado_em || \"\")));\n\n  const counts = {};\n  rows.forEach((row) => {\n    const category = String(row.categoria || \"Sem categoria\").trim() || \"Sem categoria\";\n    counts[category] = (counts[category] || 0) + 1;\n  });\n  const categories = Object.entries(counts).sort((a, b) => b[1] - a[1]);\n  const topCategory = categories[0]?.[0] || \"—\";\n  const highPotential = rows.filter((row) => String(row.potencial || \"\").toLowerCase() === \"alto\").length;\n  const lastThirtyDays = rows.filter((row) => {\n    const time = new Date(row.criado_em).getTime();\n    return Number.isFinite(time) && Date.now() - time <= 30 * 24 * 60 * 60 * 1000;\n  }).length;\n  const maxCount = Math.max(1, ...categories.map((entry) => entry[1]));\n\n  const categoryOptions = categories\n    .map(([name]) => '<option value=\"' + esc(name) + '\">' + esc(name) + \"</option>\")\n    .join(\"\");\n\n  const categoryBars = categories.length\n    ? categories.map(([name, count]) => {\n        const width = Math.max(8, Math.round((count / maxCount) * 100));\n        return '<div class=\"bar-row\"><div class=\"bar-label\"><span>' + esc(name) +\n          \"</span><strong>\" + count + '</strong></div><div class=\"bar-track\"><div class=\"bar-fill\" style=\"width:' +\n          width + '%\"></div></div></div>';\n      }).join(\"\")\n    : '<p class=\"empty-inline\">As categorias aparecerão depois que você registrar ideias.</p>';\n\n  const cards = rows.length\n    ? rows.map((row, index) => {\n        const category = String(row.categoria || \"Sem categoria\").trim() || \"Sem categoria\";\n        const tags = String(row.tags || \"\").split(\",\").map((tag) => tag.trim()).filter(Boolean);\n        const searchable = [\n          row.titulo, row.resumo, row.ideia_original, row.transcricao_midia, row.legenda_midia, row.tipo_entrada, category, row.subcategoria, row.tags\n        ].join(\" \").toLowerCase();\n        const tagHtml = tags.length\n          ? tags.map((tag) => '<span class=\"tag\">' + esc(tag) + \"</span>\").join(\"\")\n          : '<span class=\"tag muted\">Sem tags</span>';\n        return '<article class=\"idea-card\" data-category=\"' + esc(category) +\n          '\" data-search=\"' + esc(searchable) + '\">' +\n          '<div class=\"card-top\"><div class=\"idea-number\">' + String(index + 1).padStart(2, \"0\") +\n          '</div><div class=\"card-heading\"><div class=\"eyebrow\">' + esc(category) +\n          (row.subcategoria ? \" · \" + esc(row.subcategoria) : \"\") +\n          (row.tipo_entrada ? \" · \" + esc(row.tipo_entrada) : \"\") + '</div><h3>' +\n          esc(row.titulo || \"Ideia sem título\") + '</h3></div><span class=\"potential\">' +\n          esc(titleCase(row.potencial || \"Não avaliado\")) + \"</span></div>\" +\n          '<p class=\"summary\">' + esc(row.resumo || row.ideia_original || \"Sem resumo.\") + \"</p>\" +\n          (row.ideia_original && row.resumo && row.ideia_original !== row.resumo\n            ? '<details><summary>' +\n              (row.tipo_entrada === \"Áudio\" ? \"Ver transcrição completa\" :\n               row.tipo_entrada === \"Imagem\" ? \"Ver transcrição visual e descrição\" :\n               \"Ver pensamento original\") +\n              '</summary><p>' + esc(row.ideia_original) + \"</p></details>\"\n            : \"\") +\n          '<div class=\"card-footer\"><div class=\"tags\">' + tagHtml +\n          '</div><time>' + formatDate(row.criado_em) + \"</time></div></article>\";\n      }).join(\"\")\n    : '<div class=\"empty-state\"><div class=\"empty-icon\">SB</div><h3>Seu Second Brain está pronto</h3>' +\n      \"<p>Envie uma ideia pelo Telegram para começar a construir este histórico.</p></div>\";\n\n  const generatedAt = new Intl.DateTimeFormat(\"pt-BR\", {\n    dateStyle: \"long\",\n    timeStyle: \"short\",\n    timeZone: \"America/Sao_Paulo\"\n  }).format(new Date());\n\n  const html = `<!doctype html>\n<html lang=\"pt-BR\">\n<head>\n<meta charset=\"utf-8\">\n<meta name=\"viewport\" content=\"width=device-width,initial-scale=1\">\n<meta name=\"color-scheme\" content=\"light\">\n<title>Second Brain · Relatório de Ideias</title>\n<style>\n:root{--navy:#021841;--blue:#3957BD;--blue-2:#6B84DB;--light:#B8D1FF;--lilac:#E0D6F6;--ice:#F5F8FF;--ink:#10213E;--muted:#5B6B86;--line:#DDE7FA;--white:#FFF;--shadow:0 18px 50px rgba(2,24,65,.10)}\n*{box-sizing:border-box}html{scroll-behavior:smooth}body{margin:0;background:linear-gradient(180deg,#EEF4FF 0,#FFF 34rem);color:var(--ink);font-family:Inter,ui-sans-serif,-apple-system,BlinkMacSystemFont,\"Segoe UI\",sans-serif;line-height:1.55}\nbutton,input,select{font:inherit}.container{width:min(1160px,calc(100% - 36px));margin:auto}.hero{background:linear-gradient(135deg,var(--navy),var(--blue) 62%,var(--blue-2));color:#fff;padding:64px 0 92px;position:relative;overflow:hidden}\n.hero:after{content:\"\";position:absolute;width:420px;height:420px;border-radius:50%;right:-130px;top:-220px;background:radial-gradient(circle,rgba(184,209,255,.46),rgba(184,209,255,0) 68%)}\n.brand{display:inline-flex;align-items:center;gap:10px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;font-size:.78rem}.brand-mark{display:grid;place-items:center;width:34px;height:34px;border-radius:11px;background:rgba(255,255,255,.16);border:1px solid rgba(255,255,255,.28)}\n.hero h1{font-size:clamp(2.3rem,6vw,4.9rem);line-height:1;letter-spacing:-.055em;margin:34px 0 18px;max-width:780px}.hero p{font-size:1.08rem;max-width:680px;color:#DCE8FF;margin:0}.hero-meta{margin-top:28px;color:#B8D1FF;font-size:.9rem}\n.dashboard{margin-top:-48px;position:relative;z-index:2}.metrics{display:grid;grid-template-columns:repeat(4,1fr);gap:16px}.metric{background:rgba(255,255,255,.96);border:1px solid rgba(184,209,255,.72);border-radius:20px;padding:22px;box-shadow:var(--shadow)}.metric span{display:block;color:var(--muted);font-size:.78rem;font-weight:700;text-transform:uppercase;letter-spacing:.07em}.metric strong{display:block;color:var(--navy);font-size:2rem;line-height:1.1;margin-top:7px;letter-spacing:-.035em;overflow-wrap:anywhere}\n.panel{background:#fff;border:1px solid var(--line);border-radius:24px;box-shadow:0 12px 40px rgba(2,24,65,.06);padding:26px;margin-top:20px}.panel-head{display:flex;align-items:end;justify-content:space-between;gap:18px;margin-bottom:20px}.panel h2{margin:0;color:var(--navy);font-size:1.35rem;letter-spacing:-.02em}.panel-sub{color:var(--muted);font-size:.9rem;margin:4px 0 0}\n.bar-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:15px 28px}.bar-label{display:flex;justify-content:space-between;font-size:.88rem;margin-bottom:7px}.bar-label strong{color:var(--blue)}.bar-track{height:9px;border-radius:999px;background:#EAF0FC;overflow:hidden}.bar-fill{height:100%;border-radius:inherit;background:linear-gradient(90deg,var(--blue),#7892E8)}\n.toolbar{display:grid;grid-template-columns:1fr 220px;gap:12px;align-items:center;margin:30px 0 18px;position:sticky;top:12px;z-index:5;background:rgba(245,248,255,.88);backdrop-filter:blur(14px);border:1px solid rgba(184,209,255,.7);padding:12px;border-radius:18px}\n.field{position:relative}.field label{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}input,select{width:100%;height:48px;border:1px solid #C8D7F2;background:#fff;border-radius:12px;padding:0 15px;color:var(--ink);outline:none}input:focus,select:focus{border-color:var(--blue);box-shadow:0 0 0 4px rgba(57,87,189,.13)}\n.btn{height:48px;border:0;border-radius:12px;padding:0 18px;background:linear-gradient(135deg,var(--navy),var(--blue));color:#fff;font-weight:750;cursor:pointer}.btn:hover{filter:brightness(1.08)}.results-line{display:flex;justify-content:space-between;align-items:center;color:var(--muted);font-size:.9rem;margin:0 2px 14px}\n.idea-list{display:grid;gap:16px;padding-bottom:52px}.idea-card{background:#fff;border:1px solid var(--line);border-radius:22px;padding:24px;box-shadow:0 9px 28px rgba(2,24,65,.055);transition:.2s ease}.idea-card:hover{transform:translateY(-2px);box-shadow:0 16px 36px rgba(2,24,65,.10);border-color:var(--light)}.card-top{display:grid;grid-template-columns:auto 1fr auto;gap:16px;align-items:start}.idea-number{width:42px;height:42px;border-radius:13px;display:grid;place-items:center;color:var(--blue);font-weight:800;background:linear-gradient(135deg,#E9F0FF,var(--lilac))}\n.eyebrow{color:var(--blue);font-size:.77rem;text-transform:uppercase;letter-spacing:.07em;font-weight:800}.card-heading h3{margin:4px 0 0;color:var(--navy);font-size:1.24rem;line-height:1.25}.potential{background:#EEF3FF;color:var(--navy);border:1px solid #D2DEFA;border-radius:999px;padding:6px 10px;font-size:.76rem;font-weight:800;white-space:nowrap}.summary{margin:18px 0;color:#314362}.card-footer{display:flex;justify-content:space-between;align-items:end;gap:18px;border-top:1px solid #EDF2FC;padding-top:16px;margin-top:18px}.tags{display:flex;flex-wrap:wrap;gap:7px}.tag{border-radius:999px;background:var(--lilac);color:var(--navy);padding:5px 10px;font-size:.76rem;font-weight:700}.tag.muted{background:#EEF2F9;color:var(--muted)}time{color:var(--muted);font-size:.78rem;white-space:nowrap}\ndetails{background:var(--ice);border-radius:12px;padding:11px 14px;color:#415372}summary{cursor:pointer;color:var(--blue);font-weight:750;font-size:.85rem}details p{margin:10px 0 2px}.empty-state{text-align:center;padding:68px 24px;background:#fff;border:1px dashed var(--light);border-radius:24px}.empty-icon{width:58px;height:58px;display:grid;place-items:center;margin:0 auto 16px;border-radius:18px;color:#fff;font-weight:900;background:linear-gradient(135deg,var(--navy),var(--blue))}.empty-state h3{margin:0;color:var(--navy)}.empty-state p,.empty-inline{color:var(--muted)}\nfooter{padding:12px 0 46px;text-align:center;color:var(--muted);font-size:.82rem}footer a{color:var(--blue);font-weight:750;text-decoration:none}footer a:hover{text-decoration:underline}\n[hidden]{display:none!important}\n@media(max-width:850px){.metrics{grid-template-columns:repeat(2,1fr)}.bar-grid{grid-template-columns:1fr}.toolbar{grid-template-columns:1fr 1fr}.btn{grid-column:1/-1}.hero{padding-top:48px}.card-footer{align-items:start;flex-direction:column}}\n@media(max-width:560px){.container{width:min(100% - 24px,1160px)}.metrics{grid-template-columns:1fr 1fr;gap:10px}.metric{padding:17px;border-radius:17px}.metric strong{font-size:1.45rem}.toolbar{grid-template-columns:1fr;top:6px}.btn{grid-column:auto}.panel{padding:20px}.card-top{grid-template-columns:auto 1fr}.potential{grid-column:2}.idea-card{padding:19px}.hero h1{font-size:2.65rem}.hero{padding-bottom:80px}}\n@media print{body{background:#fff}.hero{padding:32px 0;background:var(--navy)!important;-webkit-print-color-adjust:exact;print-color-adjust:exact}.dashboard{margin-top:18px}.toolbar,.btn{display:none!important}.idea-card,.metric,.panel{box-shadow:none;break-inside:avoid}.idea-card:hover{transform:none}.container{width:100%}footer{padding-bottom:0}}\n</style>\n</head>\n<body>\n<header class=\"hero\"><div class=\"container\"><div class=\"brand\"><span class=\"brand-mark\">SB</span> Second Brain</div><h1>Suas ideias, organizadas para evoluir.</h1><p>Um panorama pesquisável dos seus pensamentos inovadores!</p><div class=\"hero-meta\">Relatório gerado em ${esc(generatedAt)}</div></div></header>\n<main class=\"container dashboard\">\n<section class=\"metrics\" aria-label=\"Resumo\">\n<div class=\"metric\"><span>Total de ideias</span><strong>${rows.length}</strong></div>\n<div class=\"metric\"><span>Categorias</span><strong>${categories.length}</strong></div>\n<div class=\"metric\"><span>Alto potencial</span><strong>${highPotential}</strong></div>\n<div class=\"metric\"><span>Últimos 30 dias</span><strong>${lastThirtyDays}</strong></div>\n</section>\n<section class=\"panel\"><div class=\"panel-head\"><div><h2>Distribuição temática</h2><p class=\"panel-sub\">Categoria mais recorrente: ${esc(topCategory)}</p></div></div><div class=\"bar-grid\">${categoryBars}</div></section>\n<section class=\"toolbar\" aria-label=\"Filtros\">\n<div class=\"field\"><label for=\"search\">Buscar</label><input id=\"search\" type=\"search\" placeholder=\"Buscar título, resumo, categoria ou tag...\" autocomplete=\"off\"></div>\n<div class=\"field\"><label for=\"category\">Categoria</label><select id=\"category\"><option value=\"\">Todas as categorias</option>${categoryOptions}</select></div>\n\n</section>\n<div class=\"results-line\"><strong id=\"resultCount\">${rows.length} ideia${rows.length === 1 ? \"\" : \"s\"}</strong><span>Ordenadas da mais recente</span></div>\n<section id=\"ideas\" class=\"idea-list\" aria-live=\"polite\">${cards}</section>\n</main>\n<footer class=\"container\">Second Brain - PUCPR - Prof. <a href=\"https://www.linkedin.com/in/phdbandeira/\" target=\"_blank\" rel=\"noopener noreferrer\">Gabriel Bandeira</a></footer>\n<script>\n(function(){\n  var input=document.getElementById(\"search\");\n  var select=document.getElementById(\"category\");\n  var cards=[].slice.call(document.querySelectorAll(\".idea-card\"));\n  var count=document.getElementById(\"resultCount\");\n  function filter(){\n    var term=(input.value||\"\").trim().toLowerCase();\n    var category=select.value;\n    var visible=0;\n    cards.forEach(function(card){\n      var okTerm=!term||(card.getAttribute(\"data-search\")||\"\").indexOf(term)>-1;\n      var okCategory=!category||card.getAttribute(\"data-category\")===category;\n      card.hidden=!(okTerm&&okCategory);\n      if(!card.hidden)visible++;\n    });\n    count.textContent=visible+\" ideia\"+(visible===1?\"\":\"s\");\n  }\n  input.addEventListener(\"input\",filter);\n  select.addEventListener(\"change\",filter);\n})();\n</script>\n</body>\n</html>`;\n\n  const fileDate = new Date().toISOString().slice(0, 10);\n  return [{\n    json: { chat_id: source.chat_id, total_ideias: rows.length },\n    binary: {\n      data: {\n        data: Buffer.from(html, \"utf8\").toString(\"base64\"),\n        mimeType: \"text/html\",\n        fileName: \"second-brain-\" + fileDate + \".html\",\n        fileExtension: \"html\"\n      }\n    }\n  }];"
+      },
+      "id": "bd3e710b-0688-4e42-bc57-362b97d9d50d",
+      "name": "Gerar relatório HTML",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2480,
+        2176
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "sendDocument",
+        "chatId": "={{ $json.chat_id }}",
+        "binaryData": true,
+        "additionalFields": {
+          "caption": "Seu relatório do Second Brain está pronto. Abra o arquivo no navegador para pesquisar e filtrar suas ideias.",
+          "fileName": "={{ $binary.data.fileName }}"
+        }
+      },
+      "id": "f2917d05-f416-4182-8a3d-e305413302c0",
+      "name": "Telegram - Enviar relatório",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        2736,
+        2176
+      ],
+      "webhookId": "42b9d0f4-bae5-4beb-980e-568863354cd0",
+      "credentials": {
+        "telegramApi": {
+          "id": "IXyUPIhHGsKX0hbI",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $('Entrada pronta para IA').first().json.chat_id }}",
+        "text": "={{ $json.output.resposta }}",
+        "additionalFields": {
+          "appendAttribution": false,
+          "disable_web_page_preview": true
+        }
+      },
+      "id": "7e571d53-3e7a-4683-ba53-2c0819b42cf2",
+      "name": "Telegram - Saudação ou ajuda",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        2224,
+        2480
+      ],
+      "webhookId": "5ecf6d76-bba9-4b57-bac3-52eeecb880f4",
+      "credentials": {
+        "telegramApi": {
+          "id": "IXyUPIhHGsKX0hbI",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "expression",
+        "output": "={{ ({ text: 0, audio: 1, image: 2, unsupported: 3 })[$json.media_type] ?? 3 }}"
+      },
+      "id": "452ea605-df55-460f-94b1-d15a150e766d",
+      "name": "Roteador de entrada",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [
+        464,
+        1936
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "file",
+        "fileId": "={{ $json.media_file_id }}",
+        "additionalFields": {
+          "mimeType": "={{ $json.media_mime_type || 'audio/ogg' }}"
+        }
+      },
+      "id": "cd1b905e-951c-41db-8c27-18ca5e46ce70",
+      "name": "Telegram - Baixar áudio",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        704,
+        1616
+      ],
+      "webhookId": "05aa85d8-6ffb-4f2d-8854-48e05ae49c58",
+      "credentials": {
+        "telegramApi": {
+          "id": "IXyUPIhHGsKX0hbI",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resource": "audio",
+        "operation": "transcribe",
+        "options": {
+          "language": "pt",
+          "temperature": 0
+        }
+      },
+      "id": "bf51cd38-1fda-40bd-9718-50dc4a434036",
+      "name": "OpenAI - Transcrever áudio",
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 2.3,
+      "position": [
+        944,
+        1616
+      ],
+      "credentials": {
+        "openAiApi": {
+          "id": "Wn7C2HsrhqF6szmR",
+          "name": "OpenAI account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const source = $(\"Normalizar e proteger\").first().json;\n  const transcription = String($json.text || $json.transcript || $json.transcription || \"\").trim();\n  if (!transcription) throw new Error(\"A transcrição do áudio retornou vazia.\");\n\n  return [{\n    json: {\n      ...source,\n      texto: transcription,\n      transcricao_midia: transcription,\n      media_type: \"audio\"\n    }\n  }];"
+      },
+      "id": "d0346929-37f9-42c3-9c03-8e847410c900",
+      "name": "Preparar transcrição do áudio",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1184,
+        1616
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "file",
+        "fileId": "={{ $json.media_file_id }}",
+        "additionalFields": {
+          "mimeType": "={{ $json.media_mime_type || 'image/jpeg' }}"
+        }
+      },
+      "id": "2757785d-fb7b-4d05-8b94-0f682e5201cd",
+      "name": "Telegram - Baixar imagem",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        704,
+        2224
+      ],
+      "webhookId": "8545726a-10de-4e53-b1e0-7465487f74c9",
+      "credentials": {
+        "telegramApi": {
+          "id": "IXyUPIhHGsKX0hbI",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resource": "image",
+        "operation": "analyze",
+        "modelId": {
+          "__rl": true,
+          "mode": "list",
+          "value": "gpt-5-mini"
+        },
+        "text": "={{ `Analise esta imagem para um Second Brain pessoal. Extraia e transcreva fielmente todo texto legível. Depois descreva o conteúdo, os elementos principais e o possível pensamento ou insight representado. Não invente detalhes que não estejam visíveis. Responda em português do Brasil, em texto simples, usando as seções “Transcrição visual” e “Descrição e interpretação”. Legenda enviada pelo usuário: ${$('Normalizar e proteger').first().json.media_caption || 'Nenhuma legenda.'}` }}",
+        "inputType": "base64",
+        "simplify": false,
+        "options": {
+          "detail": "high",
+          "maxTokens": 900
+        }
+      },
+      "id": "b3464e47-ec52-48a8-b0da-756a78747bed",
+      "name": "OpenAI - Analisar imagem",
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 2.3,
+      "position": [
+        944,
+        2224
+      ],
+      "credentials": {
+        "openAiApi": {
+          "id": "Wn7C2HsrhqF6szmR",
+          "name": "OpenAI account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const source = $(\"Normalizar e proteger\").first().json;\n  const collect = (value) => {\n    if (!value) return [];\n    if (typeof value === \"string\") return [value];\n    if (Array.isArray(value)) return value.flatMap(collect);\n    if (typeof value === \"object\") {\n      const own = [];\n      if (typeof value.output_text === \"string\") own.push(value.output_text);\n      if (typeof value.text === \"string\") own.push(value.text);\n      if (typeof value.content === \"string\") own.push(value.content);\n      if (value.content && typeof value.content !== \"string\") own.push(...collect(value.content));\n      if (value.output) own.push(...collect(value.output));\n      return own;\n    }\n    return [];\n  };\n  const analysis = String($json.output_text || collect($json.output).join(\"\\n\") || collect($json).join(\"\\n\")).trim();\n  if (!analysis) throw new Error(\"A análise da imagem retornou vazia.\");\n\n  const combined = source.media_caption\n    ? \"Legenda enviada pelo usuário: \" + source.media_caption + \"\\n\\n\" + analysis\n    : analysis;\n\n  return [{\n    json: {\n      ...source,\n      texto: combined,\n      transcricao_midia: analysis,\n      media_type: \"image\"\n    }\n  }];"
+      },
+      "id": "13ae123d-bef3-4d63-bc0d-7b3190165f3c",
+      "name": "Preparar transcrição da imagem",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1184,
+        2224
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const text = String($json.texto || \"\").trim();\n  if (!text) throw new Error(\"Não foi possível obter conteúdo textual da mensagem.\");\n  return [{ json: { ...$json, texto: text } }];"
+      },
+      "id": "d782cb68-b75f-4188-af17-b2f65ab51bf4",
+      "name": "Entrada pronta para IA",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1456,
+        1936
+      ]
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $json.chat_id }}",
+        "text": "={{ $json.unsupported_reason || 'Formato não suportado. Envie texto, áudio/voz ou imagem.' }}",
+        "additionalFields": {
+          "appendAttribution": false,
+          "disable_web_page_preview": true
+        }
+      },
+      "id": "f28f3711-83db-4f5e-812b-ecbe406e8b46",
+      "name": "Telegram - Formato não suportado",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        704,
+        2448
+      ],
+      "webhookId": "edd93a49-887c-4031-a48d-c35939b9211e",
+      "credentials": {
+        "telegramApi": {
+          "id": "IXyUPIhHGsKX0hbI",
+          "name": "Telegram account"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Telegram Trigger": {
+      "main": [
+        [
+          {
+            "node": "CONFIGURE AQUI",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "CONFIGURE AQUI": {
+      "main": [
+        [
+          {
+            "node": "Normalizar e proteger",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalizar e proteger": {
+      "main": [
+        [
+          {
+            "node": "Roteador de entrada",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI - Classificação": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Agente - Interpretar mensagem",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Formato estruturado": {
+      "ai_outputParser": [
+        [
+          {
+            "node": "Agente - Interpretar mensagem",
+            "type": "ai_outputParser",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Agente - Interpretar mensagem": {
+      "main": [
+        [
+          {
+            "node": "Roteador de intenção",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Roteador de intenção": {
+      "main": [
+        [
+          {
+            "node": "Preparar linha da ideia",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Google Sheets - Ler para consulta",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Google Sheets - Ler para relatório",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Telegram - Saudação ou ajuda",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Preparar linha da ideia": {
+      "main": [
+        [
+          {
+            "node": "Google Sheets - Salvar ideia",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Sheets - Salvar ideia": {
+      "main": [
+        [
+          {
+            "node": "Preparar confirmação",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Preparar confirmação": {
+      "main": [
+        [
+          {
+            "node": "Telegram - Confirmar registro",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Sheets - Ler para consulta": {
+      "main": [
+        [
+          {
+            "node": "Preparar contexto da memória",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Preparar contexto da memória": {
+      "main": [
+        [
+          {
+            "node": "Agente - Responder com a memória",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI - Resposta": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Agente - Responder com a memória",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Agente - Responder com a memória": {
+      "main": [
+        [
+          {
+            "node": "Telegram - Responder consulta",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Sheets - Ler para relatório": {
+      "main": [
+        [
+          {
+            "node": "Gerar relatório HTML",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gerar relatório HTML": {
+      "main": [
+        [
+          {
+            "node": "Telegram - Enviar relatório",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Roteador de entrada": {
+      "main": [
+        [
+          {
+            "node": "Entrada pronta para IA",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Telegram - Baixar áudio",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Telegram - Baixar imagem",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Telegram - Formato não suportado",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Telegram - Baixar áudio": {
+      "main": [
+        [
+          {
+            "node": "OpenAI - Transcrever áudio",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI - Transcrever áudio": {
+      "main": [
+        [
+          {
+            "node": "Preparar transcrição do áudio",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Preparar transcrição do áudio": {
+      "main": [
+        [
+          {
+            "node": "Entrada pronta para IA",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Telegram - Baixar imagem": {
+      "main": [
+        [
+          {
+            "node": "OpenAI - Analisar imagem",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI - Analisar imagem": {
+      "main": [
+        [
+          {
+            "node": "Preparar transcrição da imagem",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Preparar transcrição da imagem": {
+      "main": [
+        [
+          {
+            "node": "Entrada pronta para IA",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Entrada pronta para IA": {
+      "main": [
+        [
+          {
+            "node": "Agente - Interpretar mensagem",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
+  },
+  "versionId": "a0741b66-ba38-4e29-9d33-5ae88dd915c3",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "a79907821c0d18723168baaa7e7d26eb24ffee546a2914b8cee75849dfb4d3e9"
+  },
+  "nodeGroups": [],
+  "id": "N8k60UkpYxxu1fpL",
+  "tags": []
+}
